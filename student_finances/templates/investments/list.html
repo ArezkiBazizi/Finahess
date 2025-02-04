@@ -1,0 +1,297 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Investissements{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">Mes Investissements</h4>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addInvestmentModal">
+                        <i class="bi bi-plus-circle"></i> Ajouter un investissement
+                    </button>
+                </div>
+                <div class="card-body">
+                    {% if has_investments %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Nom</th>
+                                    <th>Type</th>
+                                    <th>Montant investi</th>
+                                    <th>Valeur actuelle</th>
+                                    <th>ROI</th>
+                                    <th>Date de début</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for investment in investments %}
+                                <tr>
+                                    <td>{{ investment.name }}
+                                        {% if investment.description %}
+                                        <small class="text-muted d-block">{{ investment.description }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ investment.type }}</td>
+                                    <td>{{ investment.initial_amount|floatformat:2 }} €</td>
+                                    <td>{{ investment.current_value|floatformat:2 }} €</td>
+                                    <td class="{% if investment.roi >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                        {{ investment.roi|floatformat:1 }}%
+                                    </td>
+                                    <td>{{ investment.start_date|date:"d/m/Y" }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-primary" onclick="editInvestment({{ investment.id }})">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" onclick="deleteInvestment({{ investment.id }})">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <p class="text-muted mb-0">Vous n'avez pas encore d'investissements.</p>
+                        <button class="btn btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#addInvestmentModal">
+                            <i class="bi bi-plus-circle"></i> Commencer à investir
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Résumé des investissements -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5>Total Investi</h5>
+                    <h3>{{ total_invested|floatformat:2 }} €</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5>Valeur Actuelle</h5>
+                    <h3>{{ total_current_value|floatformat:2 }} €</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card {% if total_roi >= 0 %}bg-info{% else %}bg-danger{% endif %} text-white">
+                <div class="card-body">
+                    <h5>ROI Global</h5>
+                    <h3>{{ total_roi|floatformat:2 }}%</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Après le résumé des investissements -->
+    <div class="row mb-4">
+        <!-- Données de marché -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Marchés Financiers</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Indices -->
+                    <h6 class="mb-3">Indices Majeurs</h6>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Indice</th>
+                                    <th>Valeur</th>
+                                    <th>Variation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for index in market_data.indices %}
+                                <tr>
+                                    <td>{{ index.name }}</td>
+                                    <td>{{ index.price }}</td>
+                                    <td class="{% if index.change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                        {{ index.change }}%
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Meilleures performances -->
+                    <h6 class="mb-3">Meilleures Performances CAC40</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Action</th>
+                                    <th>Prix</th>
+                                    <th>Performance 1M</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stock in market_data.top_performers %}
+                                <tr>
+                                    <td>{{ stock.name }}</td>
+                                    <td>{{ stock.price }} €</td>
+                                    <td class="{% if stock.monthly_return >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                        {{ stock.monthly_return }}%
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recommandations IA -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Recommandations Personnalisées</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <h6 class="mb-2">Votre Profil</h6>
+                        <p class="mb-0">
+                            Profil de risque : <strong>{{ investment_recommendations.profile|title }}</strong><br>
+                            Capacité d'épargne mensuelle : <strong>{{ investment_recommendations.monthly_savings|floatformat:2 }} €</strong>
+                        </p>
+                    </div>
+                    
+                    <div class="recommendations mt-4">
+                        {% for rec in investment_recommendations.recommendations %}
+                        <div class="recommendation-card mb-3">
+                            <h6>{{ rec.name }}</h6>
+                            <p class="text-muted mb-2">{{ rec.description }}</p>
+                            <div class="d-flex justify-content-between">
+                                <small>Rendement attendu : <span class="text-success">{{ rec.expected_return }}</span></small>
+                                <small>Risque : <span class="badge bg-{{ rec.risk_level|lower }}">{{ rec.risk_level }}</span></small>
+                            </div>
+                            <small class="text-muted">Investissement minimum : {{ rec.min_amount }} €</small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Ajout/Édition Investissement -->
+<div class="modal fade" id="addInvestmentModal" tabindex="-1" aria-labelledby="addInvestmentModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addInvestmentModalLabel">Ajouter un investissement</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="investmentForm" method="POST">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Nom de l'investissement</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="investment_type" class="form-label">Type d'investissement</label>
+                        <select class="form-select" id="investment_type" name="investment_type" required>
+                            <option value="">Choisir un type...</option>
+                            <option value="STOCKS">Actions</option>
+                            <option value="BONDS">Obligations</option>
+                            <option value="REAL_ESTATE">Immobilier</option>
+                            <option value="CRYPTO">Cryptomonnaies</option>
+                            <option value="OTHER">Autre</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="initial_amount" class="form-label">Montant investi</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="initial_amount" name="initial_amount" 
+                                   step="0.01" min="0" required>
+                            <span class="input-group-text">€</span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="current_value" class="form-label">Valeur actuelle</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="current_value" name="current_value" 
+                                   step="0.01" min="0" required>
+                            <span class="input-group-text">€</span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="start_date" class="form-label">Date de début</label>
+                        <input type="date" class="form-control" id="start_date" name="start_date" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script>
+function editInvestment(id) {
+    fetch(`/budget/api/investments/${id}/`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('name').value = data.name;
+            document.getElementById('investment_type').value = data.investment_type;
+            document.getElementById('initial_amount').value = data.initial_amount;
+            document.getElementById('current_value').value = data.current_value;
+            document.getElementById('start_date').value = data.start_date;
+            document.getElementById('description').value = data.description;
+            
+            document.getElementById('investmentForm').action = `/budget/investments/${id}/update/`;
+            document.getElementById('addInvestmentModalLabel').textContent = 'Modifier l\'investissement';
+            
+            new bootstrap.Modal(document.getElementById('addInvestmentModal')).show();
+        });
+}
+
+function deleteInvestment(id) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer cet investissement ?')) {
+        fetch(`/budget/investments/${id}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        }).then(() => location.reload());
+    }
+}
+
+// Rafraîchir les données toutes les 5 minutes
+setInterval(function() {
+    location.reload();
+}, 300000);
+</script>
+{% endblock %} 

@@ -1,0 +1,230 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Stratégie d'Épargne{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Simulation d'Épargne</h2>
+
+    <!-- Formulaire d'épargne actuelle -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Montant d'épargne initial</h5>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{% url 'update_initial_savings' %}" class="row align-items-end">
+                {% csrf_token %}
+                <div class="col-md-4">
+                    <label class="form-label">Épargne actuelle</label>
+                    <div class="input-group">
+                        <input type="number" 
+                               class="form-control" 
+                               name="initial_savings" 
+                               value="{{ stats.initial_savings|default:0|floatformat:2 }}"
+                               step="0.01" 
+                               required>
+                        <span class="input-group-text">€</span>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Mettre à jour
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- En-tête avec les statistiques -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Épargne Totale</h5>
+                </div>
+                <div class="card-body">
+                    <h3>{{ stats.total_saved|floatformat:2 }} €</h3>
+                    <small class="text-muted">Total épargné (incluant le mois en cours)</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Épargne du Mois</h5>
+                </div>
+                <div class="card-body">
+                    <h3>{{ stats.current_month_savings|floatformat:2 }} €</h3>
+                    <small class="text-muted">Épargne du mois en cours</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Moyenne Mensuelle</h5>
+                </div>
+                <div class="card-body">
+                    <h3>{{ stats.monthly_average|floatformat:2 }} €</h3>
+                    <small class="text-muted">Sur les 6 derniers mois</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">Projection Annuelle</h5>
+                </div>
+                <div class="card-body">
+                    <h3>{{ stats.yearly_projection|floatformat:2 }} €</h3>
+                    <small class="text-muted">Basée sur l'épargne actuelle</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Simulation d'épargne -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Simulation d'Épargne</h5>
+            <div>
+                <select class="form-select form-select-sm" id="simulationPeriod" style="width: auto;">
+                    <option value="6">6 mois</option>
+                    <option value="12" selected>1 an</option>
+                    <option value="24">2 ans</option>
+                    <option value="36">3 ans</option>
+                    <option value="60">5 ans</option>
+                </select>
+            </div>
+        </div>
+        <div class="card-body">
+            <canvas id="savingsSimulationChart" height="300"></canvas>
+        </div>
+        <div class="card-footer">
+            <div class="row text-center">
+                <div class="col-md-4">
+                    <h6 class="text-muted">Scénario Conservateur</h6>
+                    <p class="mb-0">0% de rendement annuel</p>
+                </div>
+                <div class="col-md-4">
+                    <h6 class="text-primary">Scénario Modéré</h6>
+                    <p class="mb-0">3% de rendement annuel</p>
+                </div>
+                <div class="col-md-4">
+                    <h6 class="text-success">Scénario Agressif</h6>
+                    <p class="mb-0">6% de rendement annuel</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('savingsSimulationChart').getContext('2d');
+    let savingsChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ simulation_data.labels|safe }},
+            datasets: [
+                {
+                    label: 'Conservateur (0%)',
+                    data: {{ simulation_data.conservative|safe }},
+                    borderColor: '#6c757d',
+                    backgroundColor: 'rgba(108, 117, 125, 0.1)',
+                    fill: true
+                },
+                {
+                    label: 'Modéré (3%)',
+                    data: {{ simulation_data.moderate|safe }},
+                    borderColor: '#0d6efd',
+                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                    fill: true
+                },
+                {
+                    label: 'Agressif (6%)',
+                    data: {{ simulation_data.aggressive|safe }},
+                    borderColor: '#198754',
+                    backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            let value = context.parsed.y;
+                            return `${label}: ${value.toLocaleString()} €`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString() + ' €';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Gérer le changement de période
+    document.getElementById('simulationPeriod').addEventListener('change', function(e) {
+        const months = e.target.value;
+        updateSimulation(months);
+    });
+
+    function updateSimulation(months) {
+        fetch(`/budget/api/savings/simulate/${months}/`, {
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            savingsChart.data.labels = data.labels;
+            savingsChart.data.datasets[0].data = data.conservative;
+            savingsChart.data.datasets[1].data = data.moderate;
+            savingsChart.data.datasets[2].data = data.aggressive;
+            savingsChart.update();
+        });
+    }
+});
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .progress-bar {
+        transition: background-color 0.3s ease, width 0.3s ease;
+    }
+    
+    #savingsWarning {
+        display: block;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    #savingsWarning:not(.d-none) {
+        opacity: 1;
+    }
+</style>
+{% endblock %} 

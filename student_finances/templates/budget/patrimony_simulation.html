@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">Simulation Patrimoniale</h4>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addItemModal">
+                        <i class="bi bi-plus-circle"></i> Ajouter un élément mensuel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Résumé mensuel -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5>Revenus mensuels</h5>
+                    <h3>{{ totals.income|floatformat:2 }} €</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <h5>Dépenses mensuelles</h5>
+                    <h3>{{ totals.expenses|floatformat:2 }} €</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5>Épargne mensuelle</h5>
+                    <h3>{{ totals.savings|floatformat:2 }} €</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des éléments mensuels -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Éléments mensuels récurrents</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Nom</th>
+                                    <th>Type</th>
+                                    <th>Catégorie</th>
+                                    <th>Montant</th>
+                                    <th>Priorité</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in monthly_items %}
+                                <tr>
+                                    <td>{{ item.name }}</td>
+                                    <td>{{ item.get_item_type_display }}</td>
+                                    <td>{{ item.get_category_display }}</td>
+                                    <td>{{ item.amount|floatformat:2 }} €</td>
+                                    <td>{{ item.priority }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary">Modifier</button>
+                                        <button class="btn btn-sm btn-outline-danger">Supprimer</button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphique de simulation -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Simulation Patrimoniale</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="patrimonyChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal d'ajout d'élément mensuel -->
+<div class="modal fade" id="addItemModal" tabindex="-1">
+    <!-- ... contenu du modal ... -->
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updatePatrimonyChart(data) {
+    const ctx = document.getElementById('patrimonyChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.map(d => `Mois ${d.month}`),
+            datasets: [
+                {
+                    label: 'Patrimoine',
+                    data: data.map(d => d.patrimony),
+                    borderColor: '#28a745',
+                    tension: 0.1
+                },
+                {
+                    label: 'Épargne mensuelle',
+                    data: data.map(d => d.monthly_savings),
+                    borderColor: '#17a2b8',
+                    tension: 0.1
+                },
+                {
+                    label: 'Rendement',
+                    data: data.map(d => d.investment_return),
+                    borderColor: '#ffc107',
+                    tension: 0.1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+// Initialiser le graphique avec les données existantes si disponibles
+{% if simulation_results %}
+updatePatrimonyChart({{ simulation_results|safe }});
+{% endif %}
+</script>
+{% endblock %} 

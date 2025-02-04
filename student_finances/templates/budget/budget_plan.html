@@ -1,0 +1,275 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+{% load budget_extras %}
+
+{% block title %}Budget{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">Budget - {{ current_month }}</h4>
+                    <div>
+                        <button class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#addIncomeModal">
+                            <i class="bi bi-plus-circle"></i> Ajouter un revenu
+                        </button>
+                        <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
+                            <i class="bi bi-dash-circle"></i> Ajouter une dépense
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Résumé -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Revenus mensuels</h6>
+                    <h4 class="card-title text-success">{{ monthly_income|floatformat:2 }} €</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Dépenses mensuelles</h6>
+                    <h4 class="card-title text-danger">{{ total_expenses|floatformat:2 }} €</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Solde mensuel</h6>
+                    <h4 class="card-title {% if monthly_balance >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        {{ monthly_balance|floatformat:2 }} €
+                    </h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphiques -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Vue d'ensemble</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="budgetOverview"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Répartition des dépenses</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="expenseChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Revenus et Dépenses -->
+    <div class="row">
+        <!-- Revenus -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0 d-flex justify-content-between align-items-center">
+                        Revenus
+                        <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addIncomeModal">
+                            <i class="bi bi-plus-circle"></i> Ajouter
+                        </button>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Description</th>
+                                    <th>Catégorie</th>
+                                    <th>Montant</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% regroup income_budgets|dictsort:"category" by get_category_display as income_categories %}
+                                {% for category in income_categories %}
+                                <tr class="table-light">
+                                    <td colspan="2"><strong>{{ category.grouper }}</strong></td>
+                                    <td class="text-success"><strong>{{ category.list|sum_amounts|floatformat:2 }} €</strong></td>
+                                    <td></td>
+                                </tr>
+                                {% for budget in category.list %}
+                                <tr>
+                                    <td>{{ budget.description }}</td>
+                                    <td>{{ budget.get_category_display }}</td>
+                                    <td class="text-success">
+                                        {{ budget.amount|floatformat:2 }} €
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteBudget({{ budget.id }})">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% endfor %}
+                                {% if not income_categories %}
+                                <tr>
+                                    <td colspan="4" class="text-center">Aucun revenu budgété</td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dépenses -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0 d-flex justify-content-between align-items-center">
+                        Dépenses
+                        <button class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
+                            <i class="bi bi-plus-circle"></i> Ajouter
+                        </button>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Description</th>
+                                    <th>Catégorie</th>
+                                    <th>Montant</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% regroup expense_budgets|dictsort:"category" by get_category_display as expense_categories %}
+                                {% for category in expense_categories %}
+                                <tr class="table-light">
+                                    <td colspan="2"><strong>{{ category.grouper }}</strong></td>
+                                    <td class="text-danger"><strong>{{ category.list|sum_amounts|floatformat:2 }} €</strong></td>
+                                    <td></td>
+                                </tr>
+                                {% for budget in category.list %}
+                                <tr>
+                                    <td>{{ budget.description }}</td>
+                                    <td>{{ budget.get_category_display }}</td>
+                                    <td class="text-danger">
+                                        {{ budget.amount|floatformat:2 }} €
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteBudget({{ budget.id }})">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% endfor %}
+                                {% if not expense_categories %}
+                                <tr>
+                                    <td colspan="4" class="text-center">Aucune dépense budgétée</td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals pour l'ajout de transactions -->
+{% include "budget/includes/transaction_modals.html" %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function deleteBudget(id) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer ce budget ?')) {
+        fetch(`/budget/budget/${id}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        }).then(response => response.json())
+          .then(data => {
+              if (data.status === 'success') {
+                  location.reload();
+              }
+          });
+    }
+}
+</script>
+
+<script>
+// Graphique Vue d'ensemble
+const budgetData = {{ budget_summary|safe }};
+const budgetCtx = document.getElementById('budgetOverview').getContext('2d');
+new Chart(budgetCtx, {
+    type: 'bar',
+    data: {
+        labels: budgetData.labels,
+        datasets: [{
+            data: budgetData.data,
+            backgroundColor: budgetData.colors
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                display: false
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+
+// Graphique des dépenses
+const expenseData = {{ expense_chart|safe }};
+const expenseCtx = document.getElementById('expenseChart').getContext('2d');
+new Chart(expenseCtx, {
+    type: 'doughnut',
+    data: {
+        labels: expenseData.labels,
+        datasets: [{
+            data: expenseData.data,
+            backgroundColor: expenseData.colors
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'right'
+            }
+        }
+    }
+});
+</script>
+{% endblock %} 

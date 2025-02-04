@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Planification des Voyages{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Mes Voyages</h2>
+
+    <div id="calendar"></div>
+
+    {% if travels %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Destination</th>
+                <th>Date de Début</th>
+                <th>Date de Fin</th>
+                <th>Coût Total</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for travel in travels %}
+            <tr>
+                <td>{{ travel.destination }}</td>
+                <td>{{ travel.start_date|date:"d/m/Y" }}</td>
+                <td>{{ travel.end_date|date:"d/m/Y" }}</td>
+                <td>{{ travel.total_cost|floatformat:2 }} €</td>
+                <td>
+                    <a href="{% url 'edit_travel' travel.id %}" class="btn btn-warning">Modifier</a>
+                    <a href="{% url 'delete_travel' travel.id %}" class="btn btn-danger">Supprimer</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>Aucun voyage planifié.</p>
+    {% endif %}
+    
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTravelModal">
+        Ajouter un Voyage
+    </button>
+
+    <!-- Modal pour ajouter un voyage -->
+    <div class="modal fade" id="addTravelModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="post" action="{% url 'add_travel' %}">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title">Ajouter un Voyage</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Destination</label>
+                            <input type="text" class="form-control" name="destination" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Date de Début</label>
+                            <input type="date" class="form-control" name="start_date" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Date de Fin</label>
+                            <input type="date" class="form-control" name="end_date" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Type de Transport</label>
+                            <input type="text" class="form-control" name="transport_type" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Coût de Transport</label>
+                            <input type="number" step="0.01" class="form-control" name="transport_cost" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Coût d'Hébergement</label>
+                            <input type="number" step="0.01" class="form-control" name="accommodation_cost" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Budget Activités</label>
+                            <input type="number" step="0.01" class="form-control" name="activities_budget" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Budget Nourriture</label>
+                            <input type="number" step="0.01" class="form-control" name="food_budget" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Autres Coûts</label>
+                            <input type="number" step="0.01" class="form-control" name="other_costs">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Notes</label>
+                            <textarea class="form-control" name="notes"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                        <button type="submit" class="btn btn-primary">Ajouter</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var calendarEl = document.getElementById('calendar');
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            events: [
+                {% for travel in travels %}
+                {
+                    title: '{{ travel.destination }}',
+                    start: '{{ travel.start_date }}',
+                    end: '{{ travel.end_date }}',
+                    url: '{% url "edit_travel" travel.id %}' // Lien vers la page d'édition
+                },
+                {% endfor %}
+            ]
+        });
+        calendar.render();
+    });
+</script>
+{% endblock %} 

@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">Dépenses Mensuelles Fixes</h4>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
+                        <i class="bi bi-plus-circle"></i> Ajouter une dépense mensuelle
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Résumé mensuel -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5>Revenus mensuels fixes</h5>
+                    <h3>{{ monthly_income|floatformat:2 }} €</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <h5>Dépenses mensuelles fixes</h5>
+                    <h3>{{ monthly_expenses|floatformat:2 }} €</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card {% if monthly_balance >= 0 %}bg-info{% else %}bg-warning{% endif %} text-white">
+                <div class="card-body">
+                    <h5>Balance mensuelle</h5>
+                    <h3>{{ monthly_balance|floatformat:2 }} €</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des transactions mensuelles -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Transactions mensuelles récurrentes</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Description</th>
+                                    <th>Type</th>
+                                    <th>Catégorie</th>
+                                    <th>Montant</th>
+                                    <th>Jour du mois</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for transaction in monthly_transactions %}
+                                <tr>
+                                    <td>{{ transaction.description }}</td>
+                                    <td>{{ transaction.get_transaction_type_display }}</td>
+                                    <td>{{ transaction.get_category_display }}</td>
+                                    <td>{{ transaction.amount|floatformat:2 }} €</td>
+                                    <td>{{ transaction.payment_day }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary">Modifier</button>
+                                        <button class="btn btn-sm btn-outline-danger">Supprimer</button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal d'ajout de dépense mensuelle -->
+<div class="modal fade" id="addExpenseModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Ajouter une dépense mensuelle</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <input type="text" class="form-control" name="description" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Catégorie</label>
+                        <select class="form-select" name="category" required>
+                            {% for code, name in transaction_categories %}
+                            <option value="{{ code }}">{{ name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Montant</label>
+                        <input type="number" step="0.01" class="form-control" name="amount" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Jour du mois</label>
+                        <input type="number" min="1" max="31" class="form-control" name="payment_day" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Ajouter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 

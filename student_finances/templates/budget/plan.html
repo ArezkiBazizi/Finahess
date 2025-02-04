@@ -1,0 +1,452 @@
+{% extends 'base.html' %}
+{% load budget_filters %}
+
+{% block title %}Gestion du Budget{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">Stratégie Budgétaire Mensuelle</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphiques -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Vue d'ensemble du Budget</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="budgetOverviewChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Répartition des Dépenses</h5>
+                </div>
+                <div class="card-body" style="height: 300px;">
+                    <canvas id="expenseChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tableau récapitulatif -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Revenus Mensuels</h5>
+                    <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addIncomeModal">
+                        <i class="bi bi-plus-circle"></i> Ajouter
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Catégorie</th>
+                                    <th>Montant</th>
+                                    <th>% du total</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for income in income_by_category %}
+                                <tr>
+                                    <td>{{ income.category|category_display }}</td>
+                                    <td>{{ income.total|floatformat:2 }} €</td>
+                                    <td>{{ income.total|percentage:monthly_income }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="editTransaction('{{ income.id }}', 'INCOME')">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteTransaction('{{ income.id }}')">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr class="table-success fw-bold">
+                                    <th>Total</th>
+                                    <th>{{ monthly_income|floatformat:2 }} €</th>
+                                    <th>100%</th>
+                                    <th></th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                        <div class="alert alert-success mt-3">
+                            <h6 class="mb-0">Total des revenus mensuels : {{ monthly_income|floatformat:2 }} €</h6>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Dépenses Mensuelles</h5>
+                    <button class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
+                        <i class="bi bi-plus-circle"></i> Ajouter
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Catégorie</th>
+                                    <th>Montant</th>
+                                    <th>% du revenu</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for expense in expense_by_category %}
+                                <tr>
+                                    <td>{{ expense.category|category_display }}</td>
+                                    <td>{{ expense.total|floatformat:2 }} €</td>
+                                    <td>{{ expense.total|percentage:monthly_income }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="editTransaction('{{ expense.id }}', 'EXPENSE')">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteTransaction('{{ expense.id }}')">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr class="table-danger fw-bold">
+                                    <th>Total</th>
+                                    <th>{{ total_expenses|floatformat:2 }} €</th>
+                                    <th>{{ total_expenses|percentage:monthly_income }}</th>
+                                    <th></th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                        <div class="alert alert-danger mt-3">
+                            <h6 class="mb-0">Total des dépenses mensuelles : {{ total_expenses|floatformat:2 }} €</h6>
+                        </div>
+                        <div class="alert {% if monthly_balance >= 0 %}alert-success{% else %}alert-danger{% endif %} mt-3">
+                            <h6 class="mb-0">
+                                Solde mensuel : {{ monthly_balance|floatformat:2 }} €
+                                {% if monthly_balance >= 0 %}
+                                    <small class="text-success">(Épargne potentielle)</small>
+                                {% else %}
+                                    <small class="text-danger">(Déficit)</small>
+                                {% endif %}
+                            </h6>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Ajout Revenu -->
+<div class="modal fade" id="addIncomeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Ajouter un revenu</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'add_income' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Catégorie</label>
+                        <select name="category" class="form-select" required>
+                            <option value="SALARY">Salaire</option>
+                            <option value="SCHOLARSHIP">Bourse</option>
+                            <option value="HOUSING_BENEFIT">APL/AL</option>
+                            <option value="ACTIVITY_BONUS">Prime d'activité</option>
+                            <option value="MOBILITY_AID">Aide mobilité jeune</option>
+                            <option value="RENTAL">Revenus locatifs</option>
+                            <option value="OTHER_INCOME">Autre revenu</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nom</label>
+                        <input type="text" name="name" class="form-control" required 
+                               placeholder="Ex: Salaire, APL, Prime d'activité, etc.">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Montant</label>
+                        <div class="input-group">
+                            <input type="number" name="amount" class="form-control" step="0.01" required>
+                            <span class="input-group-text">€</span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea name="description" class="form-control" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Jour de versement du mois</label>
+                        <input type="number" name="payment_day" class="form-control" min="1" max="31" 
+                               value="25" placeholder="Ex: 25 pour le 25 de chaque mois" required>
+                        <div class="form-text">
+                            Jour du mois où le revenu est versé (ex: 25 pour un salaire versé le 25 de chaque mois)
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-success">Ajouter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal d'ajout de dépense -->
+<div class="modal fade" id="addExpenseModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'add_expense' %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Ajouter une dépense mensuelle</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Catégorie</label>
+                        <select class="form-select" name="category" required>
+                            <option value="RENT">Loyer</option>
+                            <option value="UTILITIES">Charges</option>
+                            <option value="INSURANCE">Assurances</option>
+                            <option value="PHONE">Téléphone/Internet</option>
+                            <option value="TRANSPORT">Transport</option>
+                            <option value="FOOD">Alimentation</option>
+                            <option value="LEISURE">Loisirs</option>
+                            <option value="GYM">Salle de sport</option>
+                            <option value="LAUNDRY">Laverie</option>
+                            <option value="SHOPPING">Shopping</option>
+                            <option value="OTHER">Autre</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Montant mensuel</label>
+                        <input type="number" step="0.01" class="form-control" name="amount" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description (optionnel)</label>
+                        <input type="text" class="form-control" name="description">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Jour du mois</label>
+                        <input type="number" min="1" max="31" class="form-control" name="payment_day" value="1" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Ajouter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script>
+console.log('Initialisation des graphiques...');
+
+// Vue d'ensemble du budget
+const budgetCtx = document.getElementById('budgetOverviewChart');
+console.log('Données budget:', {{ budget_summary|safe }});
+
+if (budgetCtx) {
+    new Chart(budgetCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ budget_summary|safe }}.labels,
+            datasets: [{
+                data: {{ budget_summary|safe }}.data,
+                backgroundColor: {{ budget_summary|safe }}.colors,
+                borderWidth: 0,
+                borderRadius: 5,
+                maxBarThickness: 50
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed || 0;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return `${value.toFixed(2)} € (${percentage}%)`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString() + ' €';
+                        }
+                    }
+                },
+                y: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+} else {
+    console.error('Canvas budgetOverviewChart non trouvé');
+}
+
+// Répartition des dépenses
+const expenseCtx = document.getElementById('expenseChart');
+console.log('Données dépenses:', {{ expense_chart|safe }});
+
+if (expenseCtx) {
+    new Chart(expenseCtx, {
+        type: 'doughnut',
+        data: {
+            labels: {{ expense_chart|safe }}.labels,
+            datasets: [{
+                data: {{ expense_chart|safe }}.data,
+                backgroundColor: {{ expense_chart|safe }}.colors,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'right'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed || 0;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return `${label}: ${value.toFixed(2)} € (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+} else {
+    console.error('Canvas expenseChart non trouvé');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Définir la date du jour par défaut pour les champs de date
+    const today = new Date().toISOString().split('T')[0];
+    document.querySelectorAll('input[type="date"]').forEach(input => {
+        input.value = today;
+    });
+});
+
+function editTransaction(id, type) {
+    // Ouvrir le modal approprié
+    const modalId = type === 'INCOME' ? '#addIncomeModal' : '#addExpenseModal';
+    const modal = new bootstrap.Modal(document.querySelector(modalId));
+    
+    // Récupérer les données de la transaction
+    fetch(`/api/transactions/${id}/`, {
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+        },
+        credentials: 'same-origin'
+    })
+        .then(response => response.json())
+        .then(data => {
+            const form = modal._element.querySelector('form');
+            form.querySelector('[name="category"]').value = data.category;
+            form.querySelector('[name="amount"]').value = data.amount;
+            form.querySelector('[name="description"]').value = data.description || '';
+            form.querySelector('[name="payment_day"]').value = data.payment_day;
+            
+            if (type === 'INCOME') {
+                form.querySelector('[name="name"]').value = data.name || '';
+            }
+            
+            // Changer l'action du formulaire pour la mise à jour
+            form.action = `/transaction/${id}/update/`;
+            modal.show();
+        })
+        .catch(error => {
+            console.error('Erreur lors de la récupération des données:', error);
+            alert('Erreur lors de la récupération des données de la transaction');
+        });
+}
+
+function deleteTransaction(id) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer cette transaction ?')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/transaction/${id}/delete/`;
+        
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        form.appendChild(csrfInput);
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+function deleteRecurring(id) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer cette transaction récurrente ?')) {
+        // Utiliser la même fonction que deleteTransaction
+        deleteTransaction(id);
+    }
+}
+</script>
+{% endblock %} 

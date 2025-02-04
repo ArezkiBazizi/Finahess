@@ -1,0 +1,247 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Planificateur de Voyages{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet">
+<style>
+.travel-card {
+    transition: transform 0.2s;
+}
+.travel-card:hover {
+    transform: translateY(-5px);
+}
+.fc-event {
+    cursor: pointer;
+}
+.budget-summary {
+    background: linear-gradient(45deg, #2193b0, #6dd5ed);
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">Planificateur de Voyages</h4>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTravelModal">
+                        <i class="bi bi-plus-circle"></i> Planifier un voyage
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Résumé du budget -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="budget-summary">
+                <h5>Budget Voyages {{ current_year }}</h5>
+                <h3>{{ yearly_budget|floatformat:2 }} €</h3>
+                <small>Budget total pour l'année en cours</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calendrier et Liste -->
+    <div class="row">
+        <!-- Calendrier -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <div id="calendar"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Liste des voyages -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Voyages à venir</h5>
+                </div>
+                <div class="card-body">
+                    {% for travel in travels %}
+                    <div class="travel-card card mb-3">
+                        <div class="card-body">
+                            <h6 class="card-title">{{ travel.destination }}</h6>
+                            <p class="card-text">
+                                <small class="text-muted">
+                                    {{ travel.start_date|date:"d/m/Y" }} - {{ travel.end_date|date:"d/m/Y" }}
+                                </small>
+                            </p>
+                            <p class="card-text">
+                                Budget total: <strong>{{ travel.total_cost|floatformat:2 }} €</strong>
+                            </p>
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-primary" onclick="editTravel({{ travel.id }})">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-danger" onclick="deleteTravel({{ travel.id }})">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted text-center">Aucun voyage planifié</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Ajout/Édition Voyage -->
+<div class="modal fade" id="addTravelModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Planifier un voyage</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'add_travel' %}" id="travelForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Destination</label>
+                        <input type="text" class="form-control" name="destination" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Date de début</label>
+                        <input type="date" class="form-control" name="start_date" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Date de fin</label>
+                        <input type="date" class="form-control" name="end_date" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mode de transport</label>
+                        <select class="form-control" name="transport_type" required>
+                            {% for value, label in transport_choices %}
+                            <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Coût du transport</label>
+                        <input type="number" class="form-control" name="transport_cost" step="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Coût de l'hébergement</label>
+                        <input type="number" class="form-control" name="accommodation_cost" step="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Budget activités</label>
+                        <input type="number" class="form-control" name="activities_budget" step="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Budget nourriture</label>
+                        <input type="number" class="form-control" name="food_budget" step="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Autres coûts</label>
+                        <input type="number" class="form-control" name="other_costs" step="0.01" value="0">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" name="notes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/fr.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var calendarEl = document.getElementById('calendar');
+    var calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'fr',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,dayGridWeek'
+        },
+        events: [
+            {% for travel in travels %}
+            {
+                title: '{{ travel.destination }}',
+                start: '{{ travel.start_date|date:"Y-m-d" }}',
+                end: '{{ travel.end_date|date:"Y-m-d" }}',
+                id: '{{ travel.id }}',
+                backgroundColor: '#2193b0',
+                borderColor: '#2193b0',
+                extendedProps: {
+                    cost: '{{ travel.total_cost }}'
+                }
+            },
+            {% endfor %}
+        ],
+        eventClick: function(info) {
+            editTravel(info.event.id);
+        }
+    });
+    calendar.render();
+});
+
+function editTravel(id) {
+    fetch(`/budget/travel/${id}/`)
+        .then(response => response.json())
+        .then(data => {
+            document.querySelector('[name=destination]').value = data.destination;
+            document.querySelector('[name=start_date]').value = data.start_date;
+            document.querySelector('[name=end_date]').value = data.end_date;
+            document.querySelector('[name=transport_type]').value = data.transport_type;
+            document.querySelector('[name=transport_cost]').value = data.transport_cost;
+            document.querySelector('[name=accommodation_cost]').value = data.accommodation_cost;
+            document.querySelector('[name=activities_budget]').value = data.activities_budget;
+            document.querySelector('[name=food_budget]').value = data.food_budget;
+            document.querySelector('[name=other_costs]').value = data.other_costs;
+            document.querySelector('[name=notes]').value = data.notes;
+            
+            document.getElementById('travelForm').action = `/budget/travel/${id}/update/`;
+            document.querySelector('#addTravelModal .modal-title').textContent = 'Modifier le voyage';
+            
+            new bootstrap.Modal(document.getElementById('addTravelModal')).show();
+        });
+}
+
+function deleteTravel(id) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer ce voyage ?')) {
+        fetch(`/budget/travel/${id}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        }).then(() => location.reload());
+    }
+}
+
+// Réinitialiser le formulaire quand le modal est fermé
+document.getElementById('addTravelModal').addEventListener('hidden.bs.modal', function () {
+    document.getElementById('travelForm').reset();
+    document.getElementById('travelForm').action = "{% url 'add_travel' %}";
+    document.querySelector('#addTravelModal .modal-title').textContent = 'Planifier un voyage';
+});
+</script>
+{% endblock %} 

@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Résumé financier -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5>Revenus mensuels</h5>
+                    <h3>{{ monthly_income|floatformat:2 }} €</h3>
+                    <div class="mt-2">
+                        <small>vs mois dernier: 
+                            <span class="badge bg-light text-primary">+5%</span>
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Autres cartes similaires pour dépenses, épargne, etc. -->
+    </div>
+
+    <!-- Graphiques et analyses -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Évolution financière</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="financialChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Répartition des dépenses</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="expensePieChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actualités financières -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Actualités financières</h5>
+                </div>
+                <div class="card-body">
+                    {% for news in financial_news %}
+                    <div class="mb-3">
+                        <h6>{{ news.title }}</h6>
+                        <p class="text-muted">{{ news.description }}</p>
+                        <small>Source: {{ news.source.name }}</small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Taux d'épargne actuels</h5>
+                </div>
+                <div class="card-body">
+                    {% for product, rate in savings_rates.items %}
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>{{ product }}</span>
+                        <span class="badge bg-success">{{ rate }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Graphiques avec Chart.js
+const ctx = document.getElementById('financialChart').getContext('2d');
+const financialChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'],
+        datasets: [{
+            label: 'Revenus',
+            data: [/* données */],
+            borderColor: 'rgb(75, 192, 192)',
+            tension: 0.1
+        }, {
+            label: 'Dépenses',
+            data: [/* données */],
+            borderColor: 'rgb(255, 99, 132)',
+            tension: 0.1
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'top',
+            }
+        }
+    }
+});
+
+// Autres graphiques et interactions JavaScript
+</script>
+{% endblock %} 

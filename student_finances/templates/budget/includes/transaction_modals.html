@@ -1,0 +1,87 @@
+<!-- Modal Ajout Revenu -->
+<div class="modal fade" id="addIncomeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Ajouter un revenu</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="transaction_type" value="INCOME">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <input type="text" class="form-control" name="description" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Montant</label>
+                        <input type="number" class="form-control" name="amount" step="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Catégorie</label>
+                        <select class="form-control" name="category" required>
+                            <option value="SALARY">Salaire</option>
+                            <option value="SCHOLARSHIP">Bourse</option>
+                            <option value="RENTAL">Revenus locatifs</option>
+                            <option value="HOUSING_BENEFIT">APL/AL</option>
+                            <option value="ACTIVITY_BONUS">Prime d'activité</option>
+                            <option value="MOBILITY_AID">Aide mobilité jeune</option>
+                            <option value="OTHER_INCOME">Autres revenus</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-success">Ajouter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Ajout Dépense -->
+<div class="modal fade" id="addExpenseModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Ajouter une dépense</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="transaction_type" value="EXPENSE">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <input type="text" class="form-control" name="description" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Montant</label>
+                        <input type="number" class="form-control" name="amount" step="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Catégorie</label>
+                        <select class="form-control" name="category" required>
+                            <option value="RENT">Loyer</option>
+                            <option value="UTILITIES">Charges</option>
+                            <option value="INSURANCE">Assurances</option>
+                            <option value="PHONE">Téléphone/Internet</option>
+                            <option value="TRANSPORT">Transport</option>
+                            <option value="FOOD">Alimentation</option>
+                            <option value="LEISURE">Loisirs</option>
+                            <option value="GYM">Salle de sport</option>
+                            <option value="LAUNDRY">Laverie</option>
+                            <option value="SHOPPING">Shopping</option>
+                            <option value="OTHER">Autre</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-danger">Ajouter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div> 
