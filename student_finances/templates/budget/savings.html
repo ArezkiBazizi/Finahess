@@ -129,29 +129,30 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const simulationData = {{ simulation_data_json|safe }};
     const ctx = document.getElementById('savingsSimulationChart').getContext('2d');
     let savingsChart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: {{ simulation_data.labels|safe }},
+            labels: simulationData.labels,
             datasets: [
                 {
                     label: 'Conservateur (0%)',
-                    data: {{ simulation_data.conservative|safe }},
+                    data: simulationData.conservative,
                     borderColor: '#6c757d',
                     backgroundColor: 'rgba(108, 117, 125, 0.1)',
                     fill: true
                 },
                 {
                     label: 'Modéré (3%)',
-                    data: {{ simulation_data.moderate|safe }},
+                    data: simulationData.moderate,
                     borderColor: '#0d6efd',
                     backgroundColor: 'rgba(13, 110, 253, 0.1)',
                     fill: true
                 },
                 {
                     label: 'Agressif (6%)',
-                    data: {{ simulation_data.aggressive|safe }},
+                    data: simulationData.aggressive,
                     borderColor: '#198754',
                     backgroundColor: 'rgba(25, 135, 84, 0.1)',
                     fill: true

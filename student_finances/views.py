@@ -161,25 +161,29 @@ def dashboard(request):
 def investment_list(request):
     student = request.user.student
     advisor = InvestmentAdvisor(student)
-    
+    financial_api_service = FinancialAPIService()
+
+    # Récupérer les meilleures performances
+    best_performing_investments = advisor.get_best_performing_investments()
+    market_data = advisor.get_market_data()
+
+    # Récupérer les données des cryptomonnaies
+    crypto_data = financial_api_service.get_crypto_data()
+
     try:
         # Récupérer les investissements existants
         investments = Investment.objects.filter(student=student)
-        
-        # Récupérer les données de marché et recommandations
-        market_data = advisor.get_market_data()
-        recommendations = advisor.get_investment_recommendations()
-        
+
         # Calculer les statistiques d'investissement
         total_invested = sum(inv.initial_amount for inv in investments)
         total_current_value = sum(inv.current_value for inv in investments)
-        
+
         # Calculer le ROI global
         if total_invested > 0:
             total_roi = ((total_current_value - total_invested) / total_invested * 100)
         else:
             total_roi = 0
-        
+
         # Préparer les données pour l'affichage
         investments_data = []
         for inv in investments:
@@ -194,26 +198,25 @@ def investment_list(request):
                 'start_date': inv.start_date,
                 'description': inv.description
             })
-        
+
     except Exception as e:
         messages.error(request, f"Erreur lors de la récupération des données: {str(e)}")
         total_invested = 0
         total_current_value = 0
         total_roi = 0
         investments_data = []
-        market_data = {'indices': [], 'top_performers': []}
-        recommendations = {'profile': 'conservative', 'recommendations': []}
-    
+
     context = {
         'investments': investments_data,
         'total_invested': total_invested,
         'total_current_value': total_current_value,
         'total_roi': total_roi,
         'has_investments': len(investments_data) > 0,
+        'best_performing_investments': best_performing_investments,
         'market_data': market_data,
-        'investment_recommendations': recommendations
+        'crypto_data': crypto_data  # Ajout des données de cryptomonnaies
     }
-    
+
     return render(request, 'investments/list.html', context)
 
 @login_required
@@ -228,12 +231,13 @@ def budget_plan(request):
         month=current_month
     ).first()
 
-    # Récupérer l'épargne totale depuis les transactions
+    # Épargne totale (précaution) depuis les transactions
     total_savings = Transaction.objects.filter(
         student=student,
         transaction_type='SAVINGS',
         category='EMERGENCY_FUND'
     ).aggregate(Sum('amount'))['amount__sum'] or 0
+    total_savings = Decimal(str(total_savings))
 
     # Récupérer les transactions du mois
     month_transactions = Transaction.objects.filter(
@@ -242,19 +246,22 @@ def budget_plan(request):
         date__month=current_date.month
     )
     
-    # Séparer les revenus et dépenses
     incomes = month_transactions.filter(transaction_type='INCOME').order_by('-date')
     expenses = month_transactions.filter(transaction_type='EXPENSE').order_by('-date')
+
+    # Avancement par rapport à l'objectif d'épargne (éviter division par zéro)
+    savings_target = budget.savings_target if budget else Decimal('0')
+    savings_progress = (float(total_savings) / float(savings_target) * 100) if savings_target else 0
 
     context = {
         'budget': budget,
         'monthly_income': budget.total_income if budget else 0,
         'monthly_expenses': budget.total_expenses if budget else 0,
         'monthly_leisure': budget.total_leisure if budget else 0,
-        'savings_amount': total_savings,  # Utiliser l'épargne totale ici
-        'savings_progress': (total_savings / budget.savings_target * 100) if budget and budget.savings_target else 0,
-        'incomes': incomes,  # Ajouter les revenus au contexte
-        'expenses': expenses,  # Ajouter les dépenses au contexte
+        'savings_amount': total_savings,
+        'savings_progress': savings_progress,
+        'incomes': incomes,
+        'expenses': expenses,
     }
     
     return render(request, 'budget/monthly_budget.html', context)
@@ -262,7 +269,7 @@ def budget_plan(request):
 @login_required
 def delete_budget(request, budget_id):
     if request.method == 'POST':
-        budget = get_object_or_404(MonthlyBudget, id=budget_id, student=request.user.student)
+        budget = get_object_or_404(BudgetPlan, id=budget_id, student=request.user.student)
         budget.delete()
         messages.success(request, 'Budget supprimé avec succès')
         return JsonResponse({'status': 'success'})
@@ -272,27 +279,28 @@ def delete_budget(request, budget_id):
 def update_initial_savings(request):
     if request.method == 'POST':
         student = request.user.student
-        initial_savings = Decimal(request.POST['initial_savings'])
-        
-        # Supprimer l'ancienne épargne initiale
+        try:
+            initial_savings = Decimal(str(request.POST.get('initial_savings', 0)))
+        except (ValueError, TypeError):
+            initial_savings = Decimal('0')
+        initial_savings = max(initial_savings, Decimal('0'))
+
         Transaction.objects.filter(
             student=student,
             transaction_type='SAVINGS',
             category='EMERGENCY_FUND'
         ).delete()
-        
-        # Créer une nouvelle transaction pour l'épargne initiale
+
         Transaction.objects.create(
             student=student,
             amount=initial_savings,
             transaction_type='SAVINGS',
             category='EMERGENCY_FUND',
             description="Épargne initiale",
+            frequency='ONEOFF',
             date=timezone.now().date()
         )
-        
         messages.success(request, 'Montant d\'épargne initial mis à jour avec succès!')
-        
     return redirect('savings_goals')
 
 @login_required
@@ -318,24 +326,39 @@ def savings_goals(request):
     months_count = max(monthly_budgets.count(), 1)  # Éviter division par zéro
     monthly_average = total_monthly_savings / months_count
     
+    # Normaliser en Decimal pour éviter Decimal + float
+    current_savings_decimal = Decimal(str(current_savings))
+    monthly_average_decimal = Decimal(str(monthly_average))
+
     # Calculer les statistiques d'épargne
     savings_stats = {
         'total_saved': current_savings,  # L'épargne totale actuelle
         'initial_savings': current_savings,  # Pour afficher dans le formulaire
         'monthly_average': monthly_average,  # Moyenne mensuelle sans l'épargne actuelle
-        'yearly_projection': current_savings + (monthly_average * 12)  # Projection basée sur la moyenne mensuelle
+        'yearly_projection': current_savings_decimal + (monthly_average_decimal * 12)  # Projection basée sur la moyenne mensuelle
     }
 
-    # Préparer les données de simulation
+    # Préparer les données de simulation (Decimal pour cohérence)
     simulation_data = generate_savings_simulation(
-        monthly_amount=monthly_average,  # Utiliser la vraie moyenne mensuelle
+        monthly_amount=monthly_average_decimal,
         months=12,
-        initial_amount=current_savings  # Point de départ = épargne actuelle
+        initial_amount=current_savings_decimal
     )
-    
+    # JSON pour le graphique (évite les problèmes Decimal/float et guillemets dans le JS)
+    simulation_data_json = json.dumps(simulation_data, ensure_ascii=False)
+
+    # Épargne du mois en cours
+    current_month_budget = MonthlyBudget.objects.filter(
+        student=student,
+        month__month=timezone.now().month,
+        month__year=timezone.now().year
+    ).first()
+    savings_stats['current_month_savings'] = current_month_budget.get_savings_amount() if current_month_budget else monthly_average
+
     context = {
         'stats': savings_stats,
         'simulation_data': simulation_data,
+        'simulation_data_json': simulation_data_json,
     }
     
     return render(request, 'budget/savings.html', context)
@@ -350,8 +373,9 @@ def generate_savings_simulation(monthly_amount, months, initial_amount=0):
     conservative = []
     moderate = []
     aggressive = []
-    
+
     current_date = timezone.now()
+    monthly_amount = Decimal(str(monthly_amount))
     conservative_amount = Decimal(str(initial_amount))
     moderate_amount = Decimal(str(initial_amount))
     aggressive_amount = Decimal(str(initial_amount))
@@ -386,6 +410,30 @@ def generate_savings_simulation(monthly_amount, months, initial_amount=0):
         'moderate': moderate,
         'aggressive': aggressive
     }
+
+
+@login_required
+def savings_simulate_api(request, months):
+    """API JSON pour la simulation d'épargne (changement de période)."""
+    student = request.user.student
+    months = min(max(int(months), 1), 60)  # entre 1 et 60 mois
+    current_savings = Transaction.objects.filter(
+        student=student,
+        transaction_type='SAVINGS',
+        category='EMERGENCY_FUND'
+    ).aggregate(Sum('amount'))['amount__sum'] or 0
+    last_six_months = timezone.now().date() - timedelta(days=180)
+    monthly_budgets = MonthlyBudget.objects.filter(student=student, month__gte=last_six_months)
+    total_monthly_savings = sum(budget.get_savings_amount() for budget in monthly_budgets)
+    months_count = max(monthly_budgets.count(), 1)
+    monthly_average = total_monthly_savings / months_count
+    simulation_data = generate_savings_simulation(
+        monthly_amount=Decimal(str(monthly_average)),
+        months=months,
+        initial_amount=Decimal(str(current_savings))
+    )
+    return JsonResponse(simulation_data)
+
 
 @login_required
 def enhanced_dashboard(request):
@@ -579,16 +627,21 @@ def monthly_expenses(request):
 @login_required
 def add_monthly_savings(request):
     student = request.user.student
-    
+
     if request.method == 'POST':
+        category = request.POST.get('category', 'EMERGENCY_FUND')
+        if category not in dict(Transaction.CATEGORIES):
+            category = 'EMERGENCY_FUND'
+        amount = Decimal(request.POST.get('amount', 0))
+        payment_day = min(31, max(1, int(request.POST.get('payment_day', 1))))
         Transaction.objects.create(
             student=student,
-            category=request.POST['category'],
-            amount=request.POST['amount'],
+            category=category,
+            amount=amount,
             description=request.POST.get('description', ''),
-            transaction_type='SAVINGS',  # Nouveau type pour l'épargne
+            transaction_type='SAVINGS',
             frequency='MONTHLY',
-            payment_day=int(request.POST.get('payment_day', 1))
+            payment_day=payment_day
         )
         messages.success(request, 'Épargne mensuelle ajoutée avec succès!')
     return redirect('budget_plan')
@@ -777,9 +830,12 @@ def add_income(request):
 def set_savings_target(request):
     if request.method == 'POST':
         student = request.user.student
-        target = Decimal(request.POST['target'])
-        
-        # Récupérer ou créer le budget du mois en cours
+        try:
+            target = Decimal(str(request.POST.get('target', 0)))
+        except (ValueError, TypeError):
+            target = Decimal('0')
+        target = max(target, Decimal('0'))
+
         current_month = timezone.now().date().replace(day=1)
         budget, created = MonthlyBudget.objects.get_or_create(
             student=student,
@@ -791,11 +847,8 @@ def set_savings_target(request):
                 'savings_target': 0
             }
         )
-        
-        # Mettre à jour l'objectif d'épargne
         budget.savings_target = target
         budget.save()
-        
         messages.success(request, 'Objectif d\'épargne défini avec succès!')
     return redirect('budget_plan')
 
@@ -872,19 +925,19 @@ def planned_purchases(request):
     # Calculer le total des achats planifiés
     total_planned = purchases.aggregate(Sum('amount'))['amount__sum'] or 0
 
-    # Récupérer l'épargne totale pour comparaison
+    # Épargne totale (précaution) et moyenne mensuelle pour la projection
     total_savings = Transaction.objects.filter(
         student=student,
         transaction_type='SAVINGS',
         category='EMERGENCY_FUND'
     ).aggregate(Sum('amount'))['amount__sum'] or 0
-    
-    # Calculer le patrimoine estimé en fin d'année
-    monthly_savings = calculate_monthly_savings_average(student)
-    months_remaining = 12 - current_date.month + 1
+    total_savings = Decimal(str(total_savings))
+    monthly_savings = calculate_monthly_savings_average(student)  # moyenne sur 6 mois (Decimal)
+    months_remaining = max(12 - current_date.month + 1, 1)
     estimated_savings = total_savings + (monthly_savings * months_remaining)
-    estimated_patrimony = estimated_savings - total_planned
-    
+    total_planned_decimal = Decimal(str(total_planned or 0))
+    estimated_patrimony = estimated_savings - total_planned_decimal
+
     context = {
         'purchases': purchases,
         'total_planned': total_planned,

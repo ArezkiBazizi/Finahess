@@ -177,4 +177,43 @@ class InvestmentAdvisor:
         except Exception:
             return []
 
+    def get_best_performing_investments(self):
+        """Récupère les meilleures performances des investissements et des cryptomonnaies"""
+        try:
+            # Liste des symboles d'actions et de cryptomonnaies
+            stock_symbols = ['AAPL', 'MSFT', 'GOOGL']  # Exemple d'actions
+            crypto_symbols = ['BTC-USD', 'ETH-USD']  # Exemple de cryptomonnaies
+            performers = []
+
+            # Récupérer les performances des actions
+            for symbol in stock_symbols:
+                ticker = yf.Ticker(symbol)
+                hist = ticker.history(period='1d')
+                if not hist.empty:
+                    daily_return = ((hist['Close'].iloc[-1] / hist['Close'].iloc[-2]) - 1) * 100
+                    performers.append({
+                        'symbol': symbol,
+                        'name': ticker.info.get('longName', symbol),
+                        'price': round(hist['Close'].iloc[-1], 2),
+                        'daily_return': round(daily_return, 2)
+                    })
+
+            # Récupérer les performances des cryptomonnaies
+            for symbol in crypto_symbols:
+                ticker = yf.Ticker(symbol)
+                hist = ticker.history(period='1d')
+                if not hist.empty:
+                    daily_return = ((hist['Close'].iloc[-1] / hist['Close'].iloc[-2]) - 1) * 100
+                    performers.append({
+                        'symbol': symbol,
+                        'name': ticker.info.get('longName', symbol),
+                        'price': round(hist['Close'].iloc[-1], 2),
+                        'daily_return': round(daily_return, 2)
+                    })
+
+            return sorted(performers, key=lambda x: x['daily_return'], reverse=True)[:5]
+        except Exception as e:
+            print(f"Erreur lors de la récupération des meilleures performances: {str(e)}")
+            return []
+
     # ... (reste de la classe InvestmentAdvisor) 

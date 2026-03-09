@@ -116,9 +116,7 @@
                                 <tr>
                                     <td>{{ budget.description }}</td>
                                     <td>{{ budget.get_category_display }}</td>
-                                    <td class="text-success">
-                                        {{ budget.amount|floatformat:2 }} €
-                                    </td>
+                                    <td class="text-success">{{ budget.amount|floatformat:2 }} €</td>
                                     <td>
                                         <button class="btn btn-sm btn-outline-danger" onclick="deleteBudget({{ budget.id }})">
                                             <i class="bi bi-trash"></i>
@@ -206,7 +204,7 @@
 {% block scripts %}
 <script>
 function deleteBudget(id) {
-    if (confirm('Êtes-vous sûr de vouloir supprimer ce budget ?')) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer ce revenu ?')) {
         fetch(`/budget/budget/${id}/delete/`, {
             method: 'POST',
             headers: {
@@ -216,6 +214,8 @@ function deleteBudget(id) {
           .then(data => {
               if (data.status === 'success') {
                   location.reload();
+              } else {
+                  alert('Erreur lors de la suppression du revenu.');
               }
           });
     }

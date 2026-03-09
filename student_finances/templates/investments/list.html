@@ -33,11 +33,7 @@
                             <tbody>
                                 {% for investment in investments %}
                                 <tr>
-                                    <td>{{ investment.name }}
-                                        {% if investment.description %}
-                                        <small class="text-muted d-block">{{ investment.description }}</small>
-                                        {% endif %}
-                                    </td>
+                                    <td>{{ investment.name }}</td>
                                     <td>{{ investment.type }}</td>
                                     <td>{{ investment.initial_amount|floatformat:2 }} €</td>
                                     <td>{{ investment.current_value|floatformat:2 }} €</td>
@@ -188,6 +184,120 @@
                             <small class="text-muted">Investissement minimum : {{ rec.min_amount }} €</small>
                         </div>
                         {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Meilleurs investissements -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h5>Meilleurs Investissements</h5>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Nom</th>
+                            <th>Type</th>
+                            <th>Montant investi</th>
+                            <th>Valeur actuelle</th>
+                            <th>ROI</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for investment in best_performing_investments %}
+                        <tr>
+                            <td>{{ investment.name }}</td>
+                            <td>{{ investment.get_investment_type_display }}</td>
+                            <td>{{ investment.initial_amount|floatformat:2 }} €</td>
+                            <td>{{ investment.current_value|floatformat:2 }} €</td>
+                            <td class="{% if investment.roi >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                {{ investment.roi|floatformat:1 }}%
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performances de la journée -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h5>Performances de la Journée</h5>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Indice</th>
+                            <th>Valeur</th>
+                            <th>Variation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for index in market_data.indices %}
+                        <tr>
+                            <td>{{ index.name }}</td>
+                            <td>{{ index.value }} €</td>
+                            <td class="{% if index.change_percent|slice:":1" == '+' %}text-success{% else %}text-danger{% endif %}">
+                                {{ index.change_percent }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recommandations d'investissement -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h5>Recommandations d'Investissement</h5>
+            <div class="list-group">
+                {% for rec in investment_recommendations.recommendations %}
+                <div class="list-group-item">
+                    <h6>{{ rec.name }}</h6>
+                    <p>{{ rec.description }}</p>
+                    <small>Rendement attendu : <strong>{{ rec.expected_return }}</strong></small><br>
+                    <small>Risque : <strong>{{ rec.risk_level }}</strong></small>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Section pour afficher les performances des cryptomonnaies -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">Performances des Cryptomonnaies</h4>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Nom</th>
+                                    <th>Prix</th>
+                                    <th>Changement (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for crypto in crypto_data %}
+                                <tr>
+                                    <td>{{ crypto.name }}</td>
+                                    <td>{{ crypto.current_price|floatformat:2 }} €</td>
+                                    <td class="{% if crypto.price_change_percentage_24h >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                        {{ crypto.price_change_percentage_24h|floatformat:2 }}%
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
